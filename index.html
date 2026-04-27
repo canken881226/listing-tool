@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>汤普臣 · Amazon Listing 智能生成系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --surface2: #F0EDE6;
+  --border: #E2DDD5;
+  --border2: #CCC7BC;
+  --text: #1A1714;
+  --text2: #6B6560;
+  --text3: #9B968F;
+  --accent: #C84B31;
+  --accent2: #E8633E;
+  --green: #2D6A4F;
+  --amber: #B45309;
+  --blue: #1D4E89;
+  --l1: #C84B31; --l1-bg: #FDF0ED;
+  --l2: #B45309; --l2-bg: #FEF3C7;
+  --l3: #2D6A4F; --l3-bg: #ECFDF5;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.05);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.12), 0 24px 64px rgba(0,0,0,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--text);
+  color: #F7F5F0;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  letter-spacing: .01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-dot { width: 8px; height: 8px; background: var(--accent2); border-radius: 50%; }
+.header-nav { display: flex; gap: 4px; }
+.hnav-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: rgba(247,245,240,.55);
+  transition: all .2s;
+}
+.hnav-btn:hover { background: rgba(247,245,240,.1); color: #F7F5F0; }
+.hnav-btn.active { background: var(--accent); color: #FFF; }
+.sync-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(247,245,240,.5);
+  background: rgba(247,245,240,.08);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #6ee7b7; }
+.sync-dot.busy { background: #FCD34D; animation: pulse .8s ease-in-out infinite; }
+.sync-dot.err { background: #FCA5A5; animation: none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── LAYOUT ── */
+.main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── PAGE TITLES ── */
+.page-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.page-sub { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 14px;
+}
+
+/* ── GRID ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+
+/* ── FORM ── */
+label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; }
+input, select, textarea {
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  transition: border-color .2s;
+  appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #fff;
+}
+textarea { resize: vertical; min-height: 80px; }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239B968F' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+/* ── BUTTONS ── */
+.btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn-primary { background: var(--text); color: #F7F5F0; }
+.btn-primary:hover { background: var(--accent); }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+.btn-outline:hover { border-color: var(--text); background: var(--surface2); }
+.btn-accent { background: var(--accent); color: #fff; }
+.btn-accent:hover { background: var(--accent2); }
+.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); font-size: 12px; padding: 6px 12px; }
+.btn-ghost:hover { background: var(--surface2); }
+.btn-full { width: 100%; justify-content: center; }
+.btn-lg { padding: 13px 28px; font-size: 14px; border-radius: var(--radius); }
+.btn-sm { padding: 5px 11px; font-size: 11px; border-radius: 6px; }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: var(--surface2);
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--l1-bg); }
+.upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-icon {
+  width: 44px; height: 44px;
+  background: var(--text);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+.upload-icon svg { width: 22px; height: 22px; }
+.upload-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.upload-sub { font-size: 12px; color: var(--text3); }
+
+/* ── IMAGE PREVIEW ── */
+.img-preview-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.img-thumb {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border);
+}
+.img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.img-thumb .del-btn {
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px;
+  background: rgba(26,23,20,.7);
+  border: none; border-radius: 50%;
+  color: #fff; font-size: 11px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: .04em;
+}
+.badge-l1 { background: var(--l1-bg); color: var(--l1); }
+.badge-l2 { background: var(--l2-bg); color: var(--l2); }
+.badge-l3 { background: var(--l3-bg); color: var(--l3); }
+.badge-up { background: #EFF6FF; color: var(--blue); }
+.badge-pause { background: #FDF0ED; color: var(--l1); }
+.badge-new { background: var(--l3-bg); color: var(--green); }
+.badge-watch { background: var(--surface2); color: var(--text3); }
+.badge-ok { background: var(--l3-bg); color: var(--green); }
+.badge-warn { background: var(--l2-bg); color: var(--amber); }
+
+/* ── TAGS / PILLS (keyword chips) ── */
+.kw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kw-chip {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.kw-chip:hover { border-color: var(--border2); background: var(--surface2); }
+.kw-chip.selected { border-color: var(--accent); background: var(--l1-bg); color: var(--l1); }
+.kw-chip .layer-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.ld-1 { background: var(--l1); }
+.ld-2 { background: var(--l2); }
+.ld-3 { background: var(--l3); }
+
+/* ── LISTING OUTPUT ── */
+.listing-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--text);
+  position: relative;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.listing-block-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.copy-btn {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  letter-spacing: .02em;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── METRICS ── */
+.metric-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+.metric-val { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--text); }
+.metric-lab { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── TABLE ── */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  background: var(--surface2);
+  color: var(--text2);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg); }
+
+/* ── CHECKLIST ── */
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.check-item:last-child { border: none; }
+.check-icon {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+.ci-ok { background: var(--l3-bg); color: var(--green); }
+.ci-no { background: var(--l1-bg); color: var(--l1); }
+
+/* ── ANALYZE RESULT ── */
+.ai-result {
+  background: linear-gradient(135deg, #FDF0ED 0%, #FEF3C7 100%);
+  border: 1px solid #F5C4B3;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.ai-result-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+.ai-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; background: rgba(255,255,255,.7); border: 1px solid rgba(200,75,49,.2); border-radius: 6px; padding: 3px 9px; margin: 3px; color: var(--text); }
+
+/* ── LOG ── */
+.log-item {
+  display: flex;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  align-items: flex-start;
+}
+.log-item:last-child { border: none; }
+.log-time { font-size: 11px; color: var(--text3); white-space: nowrap; width: 80px; flex-shrink: 0; }
+.log-op { font-weight: 600; color: var(--accent); white-space: nowrap; flex-shrink: 0; width: 56px; }
+.log-detail { color: var(--text2); }
+
+/* ── STEP INDICATOR ── */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text3);
+}
+.step.active { color: var(--accent); }
+.step.done { color: var(--green); }
+.step-num {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.step.active .step-num { border-color: var(--accent); background: var(--accent); color: #fff; }
+.step.done .step-num { border-color: var(--green); background: var(--green); color: #fff; }
+.step-line { flex: 1; height: 1px; background: var(--border); margin: 0 8px; }
+
+/* ── AI LOADING ── */
+.ai-loading {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+}
+.ai-loading.show { display: flex; }
+.ai-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ai-loading-text { font-size: 13px; color: var(--text2); }
+.ai-loading-sub { font-size: 11px; color: var(--text3); }
+
+/* ── TOAST ── */
+.toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--text);
+  color: #F7F5F0;
+  font-size: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all .3s;
+  max-width: 320px;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.ok::before { content: '✓  '; color: #6ee7b7; }
+.toast.err::before { content: '✗  '; color: #FCA5A5; }
+
+/* ── DIVIDER ── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+.sec-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── RULE HIGHLIGHT ── */
+.rule-row {
+  display: flex; gap: 10px; padding: 9px 0;
+  border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text2);
+}
+.rule-row:last-child { border: none; }
+.rule-icon {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .main { padding: 16px 14px 40px; }
+  .grid-2, .grid-3, .grid-4, .metric-row { grid-template-columns: 1fr; }
+  .header { padding: 0 16px; }
+  .header-nav .hnav-btn span { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    汤普臣 Listing 系统
+  </div>
+  <nav class="header-nav">
+    <button class="hnav-btn active" onclick="sw('gen',this)"><span>文案生成</span></button>
+    <button class="hnav-btn" onclick="sw('kw',this)"><span>关键词库</span></button>
+    <button class="hnav-btn" onclick="sw('ad',this)"><span>广告优化</span></button>
+    <button class="hnav-btn" onclick="sw('rules',this)"><span>写作规则</span></button>
+    <button class="hnav-btn" onclick="sw('log',this)"><span>操作日志</span></button>
+  </nav>
+  <div class="sync-pill" style="gap:10px">
+    <span style="display:flex;align-items:center;gap:4px">
+      <span class="sync-dot busy" id="sdot"></span>
+      <span id="slabel">连接中</span>
+    </span>
+    <span style="width:1px;height:14px;background:rgba(247,245,240,.15)"></span>
+    <span style="display:flex;align-items:center;gap:4px;cursor:pointer" onclick="sw('log',document.querySelectorAll('.hnav-btn')[4])" title="点击配置API Key">
+      <span id="api-status-dot" style="width:6px;height:6px;border-radius:50%;background:#FCA5A5"></span>
+      <span id="api-status-txt" style="font-size:11px;color:rgba(247,245,240,.45)">API未配置</span>
+    </span>
+  </div>
+</header>
+
+<main class="main">
+<!-- API Key 横幅 - 未配置时显示 -->
+<div id="api-top-banner" style="display:none;background:#1A1714;color:#F7F5F0;border-radius:12px;padding:16px 20px;margin-bottom:16px;flex-direction:column;gap:12px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="width:36px;height:36px;background:#C84B31;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔑</div>
+    <div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:2px">设置 Claude API Key 才能使用 AI 功能</div>
+      <div style="font-size:12px;color:rgba(247,245,240,.55)">申请地址：console.anthropic.com → Settings → API Keys → Create Key</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <input id="api-key-input" type="password"
+      placeholder="粘贴你的 API Key：sk-ant-api03-..."
+      style="flex:1;min-width:240px;margin:0;background:rgba(247,245,240,.1);border:1px solid rgba(247,245,240,.2);color:#F7F5F0;font-size:13px;padding:9px 13px;border-radius:8px;outline:none;font-family:monospace"
+      oninput="this.style.borderColor=this.value.startsWith('sk-ant')?'#6ee7b7':'rgba(247,245,240,.2)'">
+    <button onclick="saveApiKey()"
+      style="background:#C84B31;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+      保存并启用
+    </button>
+  </div>
+  <div style="font-size:11px;color:rgba(247,245,240,.3)">
+    Key 存储在你的浏览器本地，不会上传到任何服务器。费用：每次生成约 $0.02-0.05。每位同事在自己浏览器填写一次即可。
+  </div>
+</div>
+
+
+<!-- ══════════════ 文案生成 ══════════════ -->
+<div id="p-gen" class="panel active">
+  <p class="page-title">Listing 文案生成</p>
+  <p class="page-sub">上传产品图片，选择品类参数，AI 自动识别商品信息并生成完整文案</p>
+
+  <div class="steps">
+    <div class="step active" id="step1">
+      <div class="step-num">1</div>上传图片
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step2">
+      <div class="step-num">2</div>选择参数
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step3">
+      <div class="step-num">3</div>确认关键词
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step4">
+      <div class="step-num">4</div>生成文案
+    </div>
+  </div>
+
+  <!-- STEP 1: 上传 -->
+  <div class="card" id="s1-card">
+    <div class="card-title">Step 1 — 上传产品图片</div>
+    <div class="upload-zone" id="dropzone"
+      ondragover="ev.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)">
+      <div class="upload-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#F7F5F0" stroke-width="1.8" stroke-linecap="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+      </div>
+      <div class="upload-title">拖拽或点击上传产品图片</div>
+      <div class="upload-sub">支持 JPG、PNG、WEBP · 最多 5 张 · AI 将自动识别产品特征</div>
+    </div>
+    <div class="img-preview-wrap" id="img-preview"></div>
+    <div style="margin-top:14px;display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="goStep(2)" id="step1-next" disabled>
+        下一步：选择参数
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 2: 参数 -->
+  <div class="card" id="s2-card" style="display:none">
+    <div class="card-title">Step 2 — 选择品类与参数</div>
+    <div class="grid-3" style="margin-bottom:4px">
+      <div>
+        <label>产品品类 *</label>
+        <select id="p-cat" onchange="onParamChange()">
+          <option value="">— 选择品类 —</option>
+        </select>
+      </div>
+      <div>
+        <label>目标市场</label>
+        <select id="p-market">
+          <option value="US">美国站 (US)</option>
+          <option value="UK">英国站 (UK)</option>
+          <option value="DE">德国站 (DE)</option>
+          <option value="JP">日本站 (JP)</option>
+        </select>
+      </div>
+      <div>
+        <label>产品线</label>
+        <select id="p-line">
+          <option value="童装">童装</option>
+          <option value="家居">家居</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div>
+        <label>适用年龄</label>
+        <select id="p-age">
+          <option value="">不限</option>
+          <option value="Toddler 1-3Y">婴幼儿 1-3岁</option>
+          <option value="Kids 3-6Y">儿童 3-6岁</option>
+          <option value="Kids 6-10Y">儿童 6-10岁</option>
+          <option value="Big Kids 10-14Y">大童 10-14岁</option>
+          <option value="Youth 14+">青少年 14+</option>
+          <option value="Adult">成人</option>
+          <option value="All Ages">全年龄</option>
+        </select>
+      </div>
+      <div>
+        <label>主要材质</label>
+        <select id="p-material">
+          <option value="">不限 / AI识别</option>
+          <option value="95% Polyester 5% Spandex">涤纶+氨纶 (95/5)</option>
+          <option value="100% Polyester">100% 涤纶</option>
+          <option value="Cotton Blend">棉混纺</option>
+          <option value="100% Cotton">100% 纯棉</option>
+          <option value="Fleece">抓绒 Fleece</option>
+          <option value="Vinyl / PVC">乙烯基 Vinyl</option>
+          <option value="Polyester Canvas">涤纶帆布</option>
+          <option value="Oxford Fabric">牛津布</option>
+          <option value="Cotton Padded">棉质加衬</option>
+        </select>
+      </div>
+      <div>
+        <label>主要颜色 / 图案</label>
+        <input id="p-color" placeholder="例：Mint Green, Bubble Print">
+      </div>
+    </div>
+    <div class="grid-3">
+      <div>
+        <label>适用场景（多选）</label>
+        <select id="p-scene" multiple style="height:88px">
+          <option value="Birthday Party">Birthday Party</option>
+          <option value="Easter">Easter</option>
+          <option value="Beach / Vacation">Beach / Vacation</option>
+          <option value="School / Daily">School / Daily</option>
+          <option value="Sports / PE">Sports / PE</option>
+          <option value="Sleepover / Pajama Party">Sleepover</option>
+          <option value="Halloween">Halloween</option>
+          <option value="Christmas / Holiday">Christmas</option>
+          <option value="Back to School">Back to School</option>
+          <option value="Laundry Room">Laundry Room</option>
+          <option value="Apartment / Dorm">Apartment / Dorm</option>
+          <option value="Home Decor">Home Decor</option>
+        </select>
+      </div>
+      <div>
+        <label>不适合 / 使用限制</label>
+        <textarea id="p-limit" style="height:88px" placeholder="例：不适合户外剧烈运动&#10;Not for carbonated drinks"></textarea>
+      </div>
+      <div>
+        <label>尺码范围</label>
+        <input id="p-size" placeholder="例：2T / 3T / 4T / 5 / 6 / 7 / 8 / 10" style="margin-bottom:8px">
+        <label>特别补充（可选）</label>
+        <input id="p-extra" placeholder="礼品包装/认证/特殊工艺等">
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px">
+      <button class="btn btn-outline" onclick="goStep(1)">← 返回</button>
+      <button class="btn btn-primary" onclick="doAnalyze()">
+        AI 识别图片并生成画像
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 3: AI结果 + 关键词 -->
+  <div class="card" id="s3-card" style="display:none">
+    <div class="card-title">Step 3 — AI 识别结果 & 关键词确认</div>
+
+    <div class="ai-loading" id="ai-loading">
+      <div class="ai-spinner"></div>
+      <div class="ai-loading-text">AI 正在分析图片...</div>
+      <div class="ai-loading-sub" id="loading-sub">识别产品特征与买家画像</div>
+    </div>
+
+    <div id="ai-result-area" style="display:none">
+      <div class="ai-result">
+        <div class="ai-result-title">AI 识别结果 · 买家画像</div>
+        <div id="ai-tags"></div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text2);line-height:1.8" id="ai-ise"></div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <div class="sec-label">Layer 1 — 核心词（自动预填）</div>
+          <textarea id="kw-l1" style="height:72px;font-size:12px;font-family:monospace"></textarea>
+        </div>
+        <div>
+          <div class="sec-label">Layer 3 — 后台词（自动预填）</div>
+          <textarea id="kw-l3" style="height:72px;font-size:12px;font-family:monospace"></textarea>
+        </div>
+      </div>
+
+      <div class="sec-label">Layer 2 — 场景词（点击勾选 3-5 条）</div>
+      <div id="kw-l2-chips" class="kw-chips" style="margin-bottom:14px"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-outline" onclick="goStep(2)">← 返回修改</button>
+        <button class="btn btn-accent btn-lg" onclick="generateListing()">
+          生成完整 Listing 文案
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: 输出 -->
+  <div class="card" id="s4-card" style="display:none">
+    <div class="card-title">Step 4 — 生成结果</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px">
+      <button class="btn btn-ghost" onclick="copyAll()">复制全部</button>
+      <button class="btn btn-ghost" onclick="goStep(1)">重新生成</button>
+    </div>
+
+    <div class="listing-block-label">
+      Title <span id="title-chars" style="font-weight:400;color:var(--text3)"></span>
+      <button class="copy-btn" onclick="cpBlock('o-title')">复制</button>
+    </div>
+    <div class="listing-block" id="o-title"></div>
+
+    <div class="listing-block-label">
+      Bullet Points（5条）<button class="copy-btn" onclick="cpBlock('o-bullets')">复制</button>
+    </div>
+    <div class="listing-block" id="o-bullets"></div>
+
+    <div class="listing-block-label">
+      Description <button class="copy-btn" onclick="cpBlock('o-desc')">复制</button>
+    </div>
+    <div class="listing-block" id="o-desc"></div>
+
+    <div class="listing-block-label">
+      Q&A <span id="qa-count" style="font-weight:400;color:var(--text3)"></span>
+      <button class="copy-btn" onclick="cpBlock('o-qa')">复制</button>
+    </div>
+    <div class="listing-block" id="o-qa"></div>
+
+    <div class="listing-block-label">
+      Search Terms（后台）<span id="st-chars" style="font-weight:400;color:var(--text3)"></span>
+      <button class="copy-btn" onclick="cpBlock('o-st')">复制</button>
+    </div>
+    <div class="listing-block" id="o-st" style="font-family:monospace;font-size:12px"></div>
+
+    <div class="divider"></div>
+    <div class="sec-label">SOP-11 上线前终检</div>
+    <div id="checklist"></div>
+
+    <div style="margin-top:14px">
+      <a id="claude-link" href="#" target="_blank" class="btn btn-primary btn-full btn-lg" onclick="copyAll()">
+        复制全部文案到剪贴板
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 关键词库 ══════════════ -->
+<div id="p-kw" class="panel">
+  <p class="page-title">关键词库管理</p>
+  <p class="page-sub">所有品类关键词分级管理 · 实时同步所有成员</p>
+
+  <div class="metric-row" id="kw-metrics">
+    <div class="metric-card"><div class="metric-val" id="mc-cats">—</div><div class="metric-lab">品类数</div></div>
+    <div class="metric-card"><div class="metric-val" id="mc-l1" style="color:var(--l1)">—</div><div class="metric-lab">L1 核心词</div></div>
+    <div class="metric-card"><div class="metric-val" id="mc-l2" style="color:var(--amber)">—</div><div class="metric-lab">L2 场景词</div></div>
+    <div class="metric-card"><div class="metric-val" id="mc-l3" style="color:var(--green)">—</div><div class="metric-lab">L3 后台词</div></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px">
+        <label>筛选品类</label>
+        <select id="kf-cat" onchange="renderKwTable()" style="margin:0">
+          <option value="">全部品类</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:130px">
+        <label>筛选 Layer</label>
+        <select id="kf-layer" onchange="renderKwTable()" style="margin:0">
+          <option value="">全部</option>
+          <option value="1">L1 核心词</option>
+          <option value="2">L2 场景词</option>
+          <option value="3">L3 后台词</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:160px">
+        <label>搜索关键词</label>
+        <input id="kf-search" placeholder="输入关键词搜索..." oninput="renderKwTable()" style="margin:0">
+      </div>
+    </div>
+    <div class="table-wrap" style="max-height:360px;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th style="width:32%">关键词</th>
+          <th style="width:20%">品类</th>
+          <th style="width:9%">Layer</th>
+          <th style="width:18%">使用位置</th>
+          <th style="width:13%">搜索意图</th>
+          <th style="width:8%">操作</th>
+        </tr></thead>
+        <tbody id="kw-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text3)" id="kw-count"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">新增关键词</div>
+      <label>品类</label><select id="ak-cat"></select>
+      <label>关键词（英文）</label><input id="ak-word" placeholder="输入英文关键词">
+      <label>Layer 层级</label>
+      <select id="ak-layer">
+        <option value="1">L1 — 核心类目词（Title 必出现）</option>
+        <option value="2" selected>L2 — 场景/需求词（Bullet / Q&A）</option>
+        <option value="3">L3 — 补充索引（后台 Search Terms）</option>
+      </select>
+      <label>搜索意图</label>
+      <select id="ak-intent">
+        <option value="高购买意图">高购买意图（准备下单）</option>
+        <option value="中意图" selected>中意图（比较/特定需求）</option>
+        <option value="补充索引">补充索引（同义/别叫法）</option>
+      </select>
+      <button class="btn btn-primary btn-full" onclick="addKeyword()">添加并同步所有人</button>
+    </div>
+    <div class="card">
+      <div class="card-title">新增品类</div>
+      <label>品类中文名</label><input id="nc-cn" placeholder="例：儿童连体泳衣">
+      <label>品类英文名</label><input id="nc-en" placeholder="例：Kids One-Piece Swimsuit">
+      <label>产品线</label>
+      <select id="nc-line"><option value="童装">童装</option><option value="家居">家居</option></select>
+      <label>初始 L1 核心词（每行一个，3-6条）</label>
+      <textarea id="nc-l1" style="height:80px" placeholder="kids swimsuit&#10;one piece swimsuit for girls&#10;toddler swimsuit girls"></textarea>
+      <button class="btn btn-accent btn-full" onclick="addCategory()">创建品类并同步</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 广告优化 ══════════════ -->
+<div id="p-ad" class="panel">
+  <p class="page-title">广告数据优化</p>
+  <p class="page-sub">每周粘贴搜索词报告 · 系统自动分析并更新关键词层级 · 实时同步</p>
+
+  <div class="card">
+    <div class="card-title">粘贴广告数据</div>
+    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px;font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.8">
+      从 Seller Central → 广告报告 → 搜索词报告，复制以下列：<strong>关键词 / 点击 / 订单 / 花费 / 销售额</strong>（Tab 或逗号分隔，每行一条）
+    </div>
+    <textarea id="ad-input" style="min-height:110px;font-family:monospace;font-size:12px"
+      placeholder="girls bubble print dress	148	12	32.5	186&#10;cute kids dress summer	45	0	9.8	0&#10;ironing board cover heat resistant	89	7	21.0	105&#10;stair riser decals peel stick	34	0	7.2	0"></textarea>
+    <div style="display:flex;gap:10px">
+      <select id="ad-cat" style="flex:1;margin:0"><option value="">选择对应品类（可选，用于新词归档）</option></select>
+      <button class="btn btn-primary" onclick="analyzeAd()" style="margin:0">分析数据</button>
+    </div>
+  </div>
+
+  <div id="ad-results" style="display:none">
+    <div class="metric-row" id="ad-metrics"></div>
+    <div class="card" style="padding:0">
+      <div class="table-wrap" style="max-height:320px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th style="width:28%">关键词</th><th>点击</th><th>订单</th>
+            <th>ACOS</th><th>CVR</th><th>当前Layer</th><th style="width:22%">建议动作</th>
+          </tr></thead>
+          <tbody id="ad-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" id="ad-summary" style="background:var(--l1-bg);border-color:#F5C4B3"></div>
+    <button class="btn btn-accent btn-full btn-lg" onclick="applyAd()" style="margin-top:10px">
+      一键应用建议并同步所有成员
+    </button>
+  </div>
+
+  <div class="divider"></div>
+  <div class="card">
+    <div class="card-title">调整决策规则</div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">↑</div><div>ACOS &lt; 25% 且订单 ≥ 5 → 升层/强化，进入前台显著位置</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l2-bg);color:var(--amber)">↓</div><div>ACOS &gt; 60% 且 CVR &lt; 0.3% → 降至 L3，退出前台保留后台索引</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l1-bg);color:var(--l1)">×</div><div>点击 ≥ 20 且订单 = 0 → 加否定词/暂停，从关键词库移除</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">+</div><div>库中未收录但订单 ≥ 2 → 新词发现，收录为 L3 试跑</div></div>
+  </div>
+</div>
+
+<!-- ══════════════ 写作规则 ══════════════ -->
+<div id="p-rules" class="panel">
+  <p class="page-title">Listing 写作规则</p>
+  <p class="page-sub">A9 + COSMO + Rufus + ISE 四维标准 · 全员统一执行</p>
+  <div class="card">
+    <div class="card-title">文案规则总览</div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Title：</strong>≤200字符；同一词≤2次；L1词必须在前80字符；后段用1个L2可读场景词</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Bullet 1：</strong>For [具体身份/场景] → [产品解决什么] → [用户获得的感受]（ISE格式）</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Bullet 3：</strong>必须标注面料成分百分比（如95%涤纶/5%氨纶）+ 具体可验证数字</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Bullet 4：</strong>含ISE情绪词：购买前障碍 → 购买后回报（妈妈视角）</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Bullet 5：</strong>含尺码范围、礼品场景、「不适合」使用限制说明</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Description：</strong>小标题分段 — WHO IT'S FOR / FABRIC & FIT / CARE / OCCASIONS / NOT FOR</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Q&A：</strong>A类≥15条；B类≥10条；每条回答含可验证具体内容（数字/材质/操作步骤）</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Search Terms：</strong>≤249字节；零重复前台词；无标点；Layer 3专用</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">✓</div><div><strong>Attributes：</strong>Seller Central后台所有字段填满——空字段=COSMO知识图谱断点</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l1-bg);color:var(--l1)">✗</div><div><strong>禁止：</strong>关键词堆砌 / best·top·premium·100%保证 / AI输出未人工核查直接上线</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Layer 判断口诀</div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l1-bg);color:var(--l1)">L1</div><div><strong style="color:var(--l1)">看见</strong> — 核心类目词，去掉它Amazon不知道你卖什么。Title前段 + Bullet必出现</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l2-bg);color:var(--amber)">L2</div><div><strong style="color:var(--amber)">听懂</strong> — 场景/需求词，用完整自然句说出来，不能直接照抄词组</div></div>
+    <div class="rule-row"><div class="rule-icon" style="background:var(--l3-bg);color:var(--green)">L3</div><div><strong style="color:var(--green)">藏好</strong> — 同义词/别叫法，只放后台Search Terms，前台不出现</div></div>
+  </div>
+</div>
+
+<!-- ══════════════ 操作日志 ══════════════ -->
+<div id="p-log" class="panel">
+  <p class="page-title">操作日志</p>
+  <p class="page-sub">记录所有成员的关键词修改、新增品类、广告数据更新操作</p>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin:0">最近 50 条操作</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text3)">你的姓名：</span>
+        <input id="op-name" placeholder="填写后日志会记录" style="width:120px;margin:0;font-size:12px;padding:6px 10px">
+        <button class="btn btn-ghost" onclick="saveName()">保存</button>
+      </div>
+    </div>
+    <div id="log-list" style="max-height:460px;overflow-y:auto">
+      <div style="text-align:center;padding:32px;color:var(--text3);font-size:13px">加载中...</div>
+    </div>
+  </div>
+  <div class="card" style="background:var(--surface2);margin-top:0">
+    <div class="card-title">API Key 管理</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span id="api-status-dot2" style="width:8px;height:8px;border-radius:50%;background:#FCA5A5"></span>
+      <span id="api-status-txt2" style="font-size:13px;color:var(--txt2)">未配置</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="api-key-log-input" type="password" placeholder="sk-ant-api03-..."
+        style="flex:1;margin:0;min-width:200px;font-family:monospace"
+        oninput="this.style.borderColor=this.value.startsWith('sk-ant')?'var(--grn)':'var(--bdr)'">
+      <button class="btn btn-dark" onclick="saveApiKeyFromLog()" style="margin:0">保存</button>
+      <button class="btn btn-outline" onclick="clearApiKey()" style="margin:0">清除</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--txt3)">
+      申请地址：console.anthropic.com → Settings → API Keys → Create Key<br>
+      Key 存储在本地浏览器，不上传任何服务器。费用：每次生成约 $0.02–$0.05。
+    </div>
+  </div>
+</div>
+</div>
+
+</main>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
