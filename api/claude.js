@@ -1,23 +1,10 @@
-// Vercel Serverless Function — 代理转发 Claude API 请求
-// 文件路径: api/claude.js
-// 部署后访问: https://your-app.vercel.app/api/claude
-
 export default async function handler(req, res) {
-  // 只允许 POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // 允许跨域（你的 Vercel 域名）
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // 从请求头取 API Key（前端传过来）
   const apiKey = req.headers['x-api-key'];
   if (!apiKey || !apiKey.startsWith('sk-ant')) {
     return res.status(401).json({ error: 'Missing or invalid API key' });
@@ -33,7 +20,6 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(req.body),
     });
-
     const data = await response.json();
     return res.status(response.status).json(data);
   } catch (error) {
